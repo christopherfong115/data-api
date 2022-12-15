@@ -1,4 +1,7 @@
 const express = require("express");
+const { authenticateToken } = require("./middleware/middleware");
+const { generateAccessToken } = require("./auth/token");
+const jwt = require("jsonwebtoken");
 const app = express();
 const port = 8080;
 
@@ -36,12 +39,33 @@ app.get("/users", (req, res) => {
   res.status(200).send({ token: token });
 });
 
-app.post("/api/verify", (req, res) => {
-  const auth = req.headers.authorization;
-  const userSearch = req.query.user;
-  if (auth === "lol" && userSearch === "admin") {
-    res.status(200).send({ status: "ok" });
-  } else {
-    res.status(400).send({ error: "invalid credentials" });
+app.get("/api/validateToken", (req, res) => {
+  const token = req.headers.authorization;
+  try {
+    const validate = authenticateToken();
+  } catch (err) {
+    res.status(402).send({ error: err });
   }
+});
+
+app.post("/api/createUser", async (req, res) => {
+  const { username, email, password } = req.body;
+  const token = await generateAccessToken(username);
+  return res
+    .cookie({ token: token })
+    .status(200)
+    .send({ success: true, status: "User Registered" });
+});
+
+app.post("/api/login", async (req, res) => {
+  const user = req.body;
+
+  const token = jwt.sign({ user }, process.env.TOKEN_SECRET, {
+    expiresIn: "1800s",
+  });
+  res.status(200).send({ token: token });
+});
+
+app.get("/api/users", authenticateToken, (req, res) => {
+  res.status(200).send(true);
 });
